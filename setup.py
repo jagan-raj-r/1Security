@@ -9,6 +9,7 @@ setup(
     author_email="",
     url="https://github.com/jaganraj/1security",
     packages=find_packages(),
+    py_modules=['cli'],
     include_package_data=True,
     install_requires=[
         "pyyaml>=6.0",
@@ -17,7 +18,11 @@ setup(
         "rich>=13.0.0",
         "checkov>=3.0.0",
     ],
-    scripts=["1security"],
+    entry_points={
+        "console_scripts": [
+            "1security=cli:cli",
+        ],
+    },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

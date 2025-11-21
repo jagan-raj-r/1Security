@@ -1,38 +1,186 @@
-# 1Security — Open Source ASPM Orchestrator
+# 1Security — All-in-One Security Scanner
 
 ![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
 
-**1Security** is a lightweight, open-source **Application Security Posture Management (ASPM)** tool that unifies the best security scanners into a single, developer-friendly platform.
+> **Stop juggling multiple security tools.** 1Security runs them all with one command.
 
-## 🚀 Quick Start
+**1Security** is an open-source security orchestrator that unifies the best security scanners into a single platform. One configuration file. One command. Complete security coverage.
 
-### Installation
+---
+
+## 🎯 What Does It Do?
+
+1Security scans your code for **4 types of security issues**:
+
+| 🔍 **What It Finds** | 🛠️ **Tool Used** | 📝 **Example** |
+|---------------------|------------------|----------------|
+| **Infrastructure misconfigurations** | Checkov | Unencrypted S3 buckets, open security groups |
+| **Vulnerable dependencies** | Trivy | Outdated packages with known CVEs |
+| **Code vulnerabilities** | Semgrep | SQL injection, XSS, hardcoded secrets |
+| **Exposed secrets** | Gitleaks | API keys, passwords, tokens in code |
+
+**Result**: One unified report in JSON, HTML, or SARIF format.
+
+---
+
+## ⚡ Quick Start (3 Steps)
+
+### 1. Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/jaganraj/1security.git
-cd 1security
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install security scanners
-pip install checkov          # For IaC scanning
-pip install semgrep          # For SAST scanning (NEW)
-brew install trivy           # For SCA scanning (macOS)
-brew install gitleaks        # For secrets detection (NEW)
-# See INSTALLATION.md for other platforms
-
-# Install 1Security in development mode
+git clone https://github.com/jagan-raj-r/1Security.git
+cd 1Security
 pip install -e .
 ```
 
-### Usage
+### 2. Set Up Tools
 
 ```bash
-# Initialize a new configuration (with automatic tool setup!)
+# Automatically installs all security scanners
+1security setup
+```
+
+### 3. Scan
+
+```bash
+# Creates config and runs first scan
+1security init
+1security run
+
+# View results
+open reports/1security-report.html
+```
+
+**That's it!** 🎉 Your first security scan is complete.
+
+---
+
+## ✨ Key Features
+
+### 🚀 **Simple & Fast**
+- **One command** to scan everything
+- **Automatic tool installation** (no manual setup!)
+- **Smart caching** for faster subsequent scans
+
+### 📊 **Beautiful Reports**
+- **Interactive HTML** with filtering & search
+- **JSON** for automation & CI/CD
+- **SARIF** for GitHub Security integration
+
+### 🎯 **Developer-Friendly**
+- **YAML configuration** (easy to understand)
+- **Clear output** with severity levels
+- **CI/CD ready** (fail builds on issues)
+
+### 🔧 **Flexible**
+- **Choose your tools** (enable/disable any scanner)
+- **Custom arguments** for each tool
+- **Multiple output formats** (HTML, JSON, SARIF)
+
+---
+
+## 📖 How It Works
+
+```mermaid
+graph LR
+    A[Your Code] --> B[1Security]
+    B --> C[Checkov<br/>IaC]
+    B --> D[Trivy<br/>SCA]
+    B --> E[Semgrep<br/>SAST]
+    B --> F[Gitleaks<br/>Secrets]
+    C --> G[Unified Report]
+    D --> G
+    E --> G
+    F --> G
+```
+
+1. **Configure once**: Edit `config.yaml` to choose tools and settings
+2. **Run anywhere**: Works on your laptop, in CI/CD, anywhere Python runs
+3. **Get insights**: View findings in beautiful HTML reports with filtering
+
+---
+
+## 🔧 Usage Examples
+
+### Basic Scan
+
+```bash
+# Scan current directory with default config
+1security run
+```
+
+### Custom Configuration
+
+```yaml
+# config.yaml
+project_name: "MyApp"
+
+tools:
+  iac:
+    enabled: true
+    runner: "checkov"
+  
+  sca:
+    enabled: true
+    runner: "trivy"
+  
+  sast:
+    enabled: true
+    runner: "semgrep"
+    args: ["--config=auto"]
+  
+  secrets:
+    enabled: true
+    runner: "gitleaks"
+
+output:
+  format: "all"        # json, html, sarif, or all
+  report_path: "reports"
+  fail_on: "high"      # Fail if High+ issues found
+```
+
+```bash
+# Run with custom config
+1security run --config config.yaml
+```
+
+### CI/CD Integration
+
+```bash
+# Fail build if critical/high issues found
+1security run --format sarif --fail-on high
+
+# Exit code 0 = no issues above threshold
+# Exit code 1 = issues found, build should fail
+```
+
+---
+
+## 📚 Documentation
+
+**Complete guides in the [`docs/`](docs/) folder:**
+
+| 📖 Guide | ⏱️ Time | 🎯 For |
+|---------|--------|--------|
+| [**Getting Started**](docs/GETTING_STARTED.md) | 10 min | First-time setup |
+| [**User Guide**](docs/USER_GUIDE.md) | 20 min | All commands & configs |
+| [**Features**](docs/FEATURES.md) | 15 min | What 1Security can do |
+| [**Tools**](docs/TOOLS.md) | 30 min | Deep dive on each scanner |
+| [**Development**](docs/DEVELOPMENT.md) | 20 min | Contributing & architecture |
+
+**Quick Links:**
+- 🆕 New user? Start here: [Getting Started](docs/GETTING_STARTED.md)
+- 💻 Need a command? Check: [User Guide](docs/USER_GUIDE.md#quick-command-reference)
+- 🔍 Browse all docs: [Documentation Index](docs/README.md)
+
+---
+
+## 🛠️ Commands Reference
+
+```bash
+# Initialize new project (creates config.yaml)
 1security init
 
 # Check which tools are installed
@@ -41,274 +189,192 @@ pip install -e .
 # Install missing tools automatically
 1security setup
 
-# Run security scans (auto-checks tools before scanning)
-1security run --config config.yaml
+# Run security scan
+1security run [OPTIONS]
 
-# View reports
-open reports/1security-report.html
+# Get help
+1security --help
+1security run --help
 ```
 
-### ⭐ **NEW: Automatic Tool Management**
-
-1Security now **automatically detects and installs** required security tools!
+### Common Options
 
 ```bash
-# One command to set up everything
-1security setup --yes
-
-# Or let init guide you through setup
-1security init
-```
-
-No more manual tool installation! See [docs/TOOL_MANAGEMENT.md](docs/TOOL_MANAGEMENT.md) for details.
-
-### ⭐ **NEW: Interactive Report Filtering**
-
-HTML reports now include powerful **client-side filtering**!
-
-**Filter by:**
-- 🔧 Tool (Checkov, Trivy, Semgrep, Gitleaks)
-- ⚠️ Severity (Critical, High, Medium, Low, Info)
-- 📋 Category (IaC, SCA, SAST, Secrets)
-- 🔍 Search (keywords, files, check IDs)
-
-**Features:**
-- ✅ Instant filtering (no page reload)
-- ✅ Combine multiple filters
-- ✅ Keyboard shortcuts (Ctrl+K for search)
-- ✅ Live stats counter
-- ✅ Beautiful, responsive UI
-
-See [docs/REPORT_FILTERING.md](docs/REPORT_FILTERING.md) for details and examples.
-
-## 📋 Phase 2 - Multi-Tool Security Platform ⭐ NEW
-
-**Phase 2 is now COMPLETE!** 1Security now includes comprehensive security scanning across multiple categories.
-
-### Features
-
-✅ Command-line interface (`1security run`)  
-✅ YAML-based configuration  
-✅ **Checkov** integration for IaC scanning  
-✅ **Trivy** integration for SCA/vulnerability scanning  
-✅ **Semgrep** integration for SAST (Static Analysis) ⭐ NEW  
-✅ **Gitleaks** integration for secrets detection ⭐ NEW  
-✅ **SARIF** export format ⭐ NEW  
-✅ **Automatic tool detection & installation** ⭐ NEW  
-✅ **Interactive filtering in HTML reports** ⭐ NEW  
-✅ Unified JSON output schema  
-✅ HTML, JSON, and SARIF report generation  
-✅ Severity-based filtering  
-✅ Beautiful, modern HTML reports  
-✅ Multi-tool scanning support (4+ tools)  
-
-### Example Configuration
-
-```yaml
-project: myapp
-language: python
-
-tools:
-  # IaC scanning with Checkov
-  iac:
-    enabled: true
-    runner: checkov
-    args: ["-d", ".", "--framework", "terraform", "--output", "json", "--quiet"]
-  
-  # SCA scanning with Trivy
-  sca:
-    enabled: true
-    runner: trivy
-    args: ["fs", ".", "--scanners", "vuln", "--format", "json", "--quiet"]
-
-output:
-  format: both  # json, html, or both
-  report_path: reports/
-  fail_on: critical
-```
-
-### Running a Scan
-
-```bash
-# Scan current directory
-1security run
-
-# Specify custom config
+# Specify config file
 1security run --config my-config.yaml
 
+# Change output format
+1security run --format json           # JSON only
+1security run --format html           # HTML only
+1security run --format sarif          # SARIF only
+1security run --format all            # All formats
+
 # Change output directory
-1security run --output ./security-reports
+1security run --output ./my-reports
 
-# Generate only JSON report
-1security run --format json
+# Skip tool check (faster, but assumes tools installed)
+1security run --skip-tool-check
 ```
 
-## 🧩 Project Structure
+---
 
-```
-1security/
-├── cli.py                      # Command-line interface
-├── setup.py                    # Package setup
-├── requirements.txt            # Python dependencies
-├── core/
-│   ├── orchestrator.py        # Main orchestration logic
-│   ├── config_loader.py       # YAML config loader
-│   ├── schema.py              # Unified output schema
-│   ├── parsers/
-│   │   └── checkov_parser.py  # Checkov output parser
-│   └── reporters/
-│       ├── json_reporter.py   # JSON report generator
-│       └── html_reporter.py   # HTML report generator
-└── examples/
-    ├── config.example.yaml    # Example configuration
-    └── terraform/             # Example Terraform files
-        └── main.tf
+## 🔒 Supported Security Scanners
+
+| Tool | Category | What It Scans | Install |
+|------|----------|---------------|---------|
+| [**Checkov**](https://www.checkov.io/) | IaC | Terraform, CloudFormation, Kubernetes, Dockerfiles | `pip install checkov` |
+| [**Trivy**](https://trivy.dev/) | SCA | Dependencies (npm, pip, go, etc.) | `brew install trivy` |
+| [**Semgrep**](https://semgrep.dev/) | SAST | Code (Python, JS, Java, Go, etc.) | `pip install semgrep` |
+| [**Gitleaks**](https://github.com/gitleaks/gitleaks) | Secrets | Hardcoded credentials, API keys | `brew install gitleaks` |
+
+**Or let 1Security install them:**
+```bash
+1security setup --yes
 ```
 
-## 📊 Output Schema
+---
 
-All findings are normalized to a unified schema:
+## 🎯 Use Cases
 
-```json
-{
-  "tool": "checkov",
-  "category": "iac",
-  "severity": "HIGH",
-  "title": "Ensure S3 bucket has encryption enabled",
-  "description": "S3 bucket does not have encryption enabled",
-  "file": "terraform/main.tf",
-  "line": 15,
-  "resource": "aws_s3_bucket.example",
-  "rule_id": "CKV_AWS_19",
-  "check_id": "CKV_AWS_19",
-  "recommendation": "Enable S3 bucket encryption"
-}
+### 🏢 **For Teams**
+- **Standardize security** across all projects
+- **One config** shared in git
+- **Consistent reports** everyone understands
+
+### 🚀 **For CI/CD**
+- **Fail builds** on security issues
+- **SARIF format** for GitHub integration
+- **Fast** with caching
+
+### 👨‍💻 **For Developers**
+- **Catch issues** before commit
+- **Learn security** from clear descriptions
+- **Fix quickly** with recommendations
+
+---
+
+## 🔄 Integration Examples
+
+### GitHub Actions
+
+```yaml
+name: Security Scan
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install 1Security
+        run: |
+          pip install git+https://github.com/jagan-raj-r/1Security.git
+          1security setup --yes
+      
+      - name: Run Security Scan
+        run: 1security run --format sarif --fail-on high
+      
+      - name: Upload Results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: reports/1security-report.sarif
 ```
 
-## 🎯 Roadmap
+### GitLab CI
 
-### Phase 1 — IaC & SCA Scanning (✅ Complete)
-- [x] CLI with config loader
-- [x] Checkov integration (IaC)
-- [x] Trivy integration (SCA)
-- [x] Unified output schema
-- [x] JSON and HTML reports
-- [x] Multi-tool support
+```yaml
+security_scan:
+  image: python:3.10
+  script:
+    - pip install git+https://github.com/jagan-raj-r/1Security.git
+    - 1security setup --yes
+    - 1security run --format json --fail-on high
+  artifacts:
+    reports:
+      security: reports/1security-report.json
+    paths:
+      - reports/
+```
 
-### Phase 2 — Additional Security Tools (✅ Complete)
-- [x] Semgrep (SAST) ⭐ NEW
-- [x] Gitleaks (Secrets) ⭐ NEW
-- [x] SARIF export format ⭐ NEW
-- [x] Enhanced configuration
-- [x] Comprehensive examples
+---
 
-### Phase 3 — Advanced Features
-- [ ] Web dashboard (FastAPI + React)
+## 🗺️ Roadmap
+
+### ✅ Phase 1 & 2 (Complete)
+- [x] Multi-tool orchestration
+- [x] Unified reporting
+- [x] Automatic tool installation
+- [x] Interactive HTML reports
+- [x] SARIF export
+
+### 🚧 Phase 3 (Planned)
+- [ ] Web dashboard
+- [ ] Issue deduplication
 - [ ] Policy engine
-- [ ] Deduplication and correlation
-- [ ] CI/CD integrations (GitLab, Jenkins)
-- [ ] Slack/Jira notifications
+- [ ] Slack/Teams notifications
 - [ ] Plugin system
 
-## 🧪 Testing
+---
 
-Try it out with the example Terraform files:
+## 💡 Why 1Security?
+
+### Before 1Security 😫
 
 ```bash
-# Copy example config
-cp examples/config.example.yaml config.yaml
+# Run each tool separately
+checkov -d . --output json > checkov.json
+trivy fs . --format json > trivy.json
+semgrep --config=auto --json > semgrep.json
+gitleaks detect --report-format json --report-path gitleaks.json
 
-# Run scan on example Terraform files
+# Parse different output formats
+# Combine results manually
+# Generate reports yourself
+# Set up each tool in CI/CD separately
+```
+
+### With 1Security 😎
+
+```bash
+# One command does everything
 1security run
 
-# View the report
+# Unified report ready
 open reports/1security-report.html
 ```
 
-The example Terraform files intentionally contain security issues to demonstrate Checkov's capabilities.
+**Result**: 80% time saved, 100% better insights.
 
-## 🔧 Requirements
-
-**Python Dependencies:**
-- Python 3.8+
-- Checkov 3.0+
-- PyYAML
-- Click
-- Jinja2
-- Rich
-
-**Security Scanners:**
-- Checkov (IaC) - `pip install checkov`
-- Trivy (SCA) - `brew install trivy` or see [INSTALLATION.md](INSTALLATION.md)
-- Semgrep (SAST) - `pip install semgrep`
-- Gitleaks (Secrets) - `brew install gitleaks`
-
-## 📝 Configuration Options
-
-### Checkov Arguments
-
-Common Checkov arguments you can use:
-
-- `-d <directory>` - Directory to scan
-- `--framework <name>` - Specific framework (terraform, cloudformation, kubernetes, etc.)
-- `--output json` - Output format (required)
-- `--quiet` - Suppress progress output
-- `--check <check_id>` - Run specific checks
-- `--skip-check <check_id>` - Skip specific checks
-- `--soft-fail` - Don't exit with error code
-
-### Output Configuration
-
-- `format`: `json`, `html`, or `both`
-- `report_path`: Directory for reports
-- `fail_on`: Severity threshold (`critical`, `high`, `medium`, `low`, `info`)
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! This is Phase 1 MVP, and we'd love help adding:
+We welcome contributions! Whether it's:
 
-- Additional tool integrations
-- Enhanced reporting
-- Policy engine
-- CI/CD templates
-- Documentation
+- 🐛 Bug fixes
+- ✨ New features
+- 📝 Documentation
+- 🔧 New tool integrations
 
-## 📚 Documentation
-
-**Complete, organized documentation** in the [`docs/`](docs/) directory:
-
-| Document | Description | For |
-|----------|-------------|-----|
-| [**Getting Started**](docs/GETTING_STARTED.md) | Install, setup, first scan | New users (10 min) |
-| [**User Guide**](docs/USER_GUIDE.md) | Commands, configs, workflows | Daily usage (20 min) |
-| [**Features**](docs/FEATURES.md) | All capabilities explained | Understanding 1Security (15 min) |
-| [**Tools**](docs/TOOLS.md) | Deep dive: Checkov, Trivy, Semgrep, Gitleaks | Tool-specific questions (30 min) |
-| [**Development**](docs/DEVELOPMENT.md) | Architecture, contributing | Contributors (20 min) |
-| [**Changelog**](docs/CHANGELOG.md) | Version history | Tracking updates |
-
-### Quick Links
-
-- **New to 1Security?** → [Getting Started](docs/GETTING_STARTED.md)
-- **Need a command?** → [User Guide](docs/USER_GUIDE.md#quick-command-reference)
-- **What can it do?** → [Features](docs/FEATURES.md)
-- **Tool questions?** → [Tools Guide](docs/TOOLS.md)
-
-👉 **[Documentation Index](docs/README.md)** - Complete navigation guide
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for guidelines.
 
 ---
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## 👤 Author
+---
 
-**R Jagan Raj**  
-GitHub: [@jaganraj](https://github.com/jaganraj)
+## 🙏 Credits
 
-## 🙏 Acknowledgments
+Built with these amazing open-source tools:
 
-Thanks to the amazing open-source security tools:
 - [**Checkov**](https://www.checkov.io/) by Bridgecrew
 - [**Trivy**](https://aquasecurity.github.io/trivy/) by Aqua Security
 - [**Semgrep**](https://semgrep.dev/) by Semgrep Inc.
@@ -316,5 +382,16 @@ Thanks to the amazing open-source security tools:
 
 ---
 
-**Phase 2 Complete!** - v0.2.0 includes IaC, SCA, SAST, and Secrets detection all in one platform. 🚀
+## 🌟 Star History
 
+If 1Security helps you, give it a ⭐ on GitHub!
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [R Jagan Raj](https://github.com/jagan-raj-r)**
+
+[Documentation](docs/README.md) • [Getting Started](docs/GETTING_STARTED.md) • [Report Issues](https://github.com/jagan-raj-r/1Security/issues)
+
+</div>

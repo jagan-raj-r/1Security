@@ -1,509 +1,777 @@
-# 🔧 Development Guide
+# 🛠️ Development Guide
 
-Guide for contributors and developers working on 1Security.
+Welcome to 1Security development! This guide covers architecture, setup, contributing, and best practices.
 
 ---
 
-## 🏗️ Project Structure
+## 📋 Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Development Setup](#development-setup)
+- [Project Structure](#project-structure)
+- [Adding New Tools](#adding-new-tools)
+- [Code Style](#code-style)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [Release Process](#release-process)
+
+---
+
+## 🏗️ Architecture Overview
+
+### High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         CLI Layer                           │
+│                    (cli.py - Click)                         │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│                   Orchestrator Layer                        │
+│              (core/orchestrator.py)                         │
+│  - Tool execution                                           │
+│  - Result compilation                                       │
+│  - Report generation                                        │
+└────────┬────────────────────────┬───────────────────────────┘
+         │                        │
+┌────────▼─────────┐    ┌────────▼──────────┐
+│   Parser Layer   │    │  Reporter Layer   │
+│  core/parsers/   │    │ core/reporters/   │
+│  - Checkov       │    │  - JSON           │
+│  - Trivy         │    │  - HTML           │
+│  - Semgrep       │    │  - SARIF          │
+│  - Gitleaks      │    └───────────────────┘
+└──────────────────┘
+```
+
+### Core Components
+
+#### 1. **CLI Layer** (`cli.py`)
+- **Purpose**: User interface and command handling
+- **Framework**: Click
+- **Commands**: `init`, `run`, `check`, `setup`
+- **Responsibilities**:
+  - Parse command-line arguments
+  - Load configuration
+  - Call orchestrator
+  - Display results
+
+#### 2. **Orchestrator** (`core/orchestrator.py`)
+- **Purpose**: Coordinate tool execution and result aggregation
+- **Responsibilities**:
+  - Execute security tools
+  - Collect results from parsers
+  - Compile unified findings
+  - Generate reports
+  - Apply fail thresholds
+
+#### 3. **Parsers** (`core/parsers/`)
+- **Purpose**: Execute tools and normalize their output
+- **Pattern**: Each parser implements:
+  ```python
+  def parse(self, target_path: str) -> List[Finding]
+  ```
+- **Current Parsers**:
+  - `checkov_parser.py` - IaC scanning
+  - `trivy_parser.py` - SCA scanning
+  - `semgrep_parser.py` - SAST scanning
+  - `gitleaks_parser.py` - Secrets detection
+
+#### 4. **Reporters** (`core/reporters/`)
+- **Purpose**: Generate reports in various formats
+- **Current Reporters**:
+  - `json_reporter.py` - JSON output
+  - `html_reporter.py` - Interactive HTML
+  - `sarif_reporter.py` - SARIF format
+
+#### 5. **Schema** (`core/schema.py`)
+- **Purpose**: Unified data model
+- **Key Classes**:
+  - `Finding` - Individual security issue
+  - `ScanResult` - Complete scan results
+  - `Severity` - Severity enum
+
+#### 6. **Utilities** (`core/utils/`)
+- **Purpose**: Helper functions
+- **Modules**:
+  - `file_utils.py` - File operations
+  - `severity_utils.py` - Severity comparison
+  - `tool_installer.py` - Tool installation
+
+---
+
+## 💻 Development Setup
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip (Python package manager)
+- git
+
+### Setup Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/jagan-raj-r/1Security.git
+   cd 1Security
+   ```
+
+2. **Create virtual environment** (recommended)
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install in development mode**
+   ```bash
+   pip install -e .
+   ```
+
+4. **Install development dependencies**
+   ```bash
+   pip install -e ".[dev]"  # If dev extras defined
+   # Or manually:
+   pip install pytest black pylint mypy
+   ```
+
+5. **Install security tools**
+   ```bash
+   1security setup
+   ```
+
+6. **Verify installation**
+   ```bash
+   1security --version
+   1security check
+   ```
+
+---
+
+## 📁 Project Structure
 
 ```
 1Security/
-├── 1security                 # CLI executable
-├── cli.py                   # CLI implementation (Click)
-├── setup.py                 # Package configuration
-├── requirements.txt         # Python dependencies
+├── cli.py                          # CLI entry point
+├── setup.py                        # Package configuration
+├── requirements.txt                # Python dependencies
+├── .gitignore                      # Git ignore rules
 │
-├── core/                    # Core application logic
-│   ├── __init__.py         # Package exports
-│   ├── orchestrator.py     # Main coordinator
-│   ├── config_loader.py    # YAML config parser
-│   ├── schema.py           # Data models (Finding, ScanResult)
-│   ├── constants.py        # Application constants
-│   ├── exceptions.py       # Custom exceptions
+├── core/                           # Core package
+│   ├── __init__.py                # Package initialization
+│   ├── constants.py               # Application constants
+│   ├── exceptions.py              # Custom exceptions
+│   ├── logger.py                  # Logging configuration
+│   ├── schema.py                  # Data models
+│   ├── config_loader.py           # Configuration loader
+│   ├── orchestrator.py            # Main orchestrator
 │   │
-│   ├── parsers/            # Tool output parsers
-│   │   ├── checkov_parser.py
-│   │   ├── trivy_parser.py
-│   │   ├── semgrep_parser.py
-│   │   └── gitleaks_parser.py
+│   ├── parsers/                   # Tool parsers
+│   │   ├── __init__.py
+│   │   ├── checkov_parser.py     # Checkov integration
+│   │   ├── trivy_parser.py       # Trivy integration
+│   │   ├── semgrep_parser.py     # Semgrep integration
+│   │   └── gitleaks_parser.py    # Gitleaks integration
 │   │
-│   ├── reporters/          # Report generators
-│   │   ├── json_reporter.py
-│   │   ├── html_reporter.py
-│   │   └── sarif_reporter.py
+│   ├── reporters/                 # Report generators
+│   │   ├── __init__.py
+│   │   ├── json_reporter.py      # JSON reports
+│   │   ├── html_reporter.py      # HTML reports
+│   │   └── sarif_reporter.py     # SARIF reports
 │   │
-│   └── utils/             # Utility modules
-│       ├── file_utils.py
-│       ├── severity_utils.py
-│       └── tool_installer.py
+│   └── utils/                     # Utility functions
+│       ├── __init__.py
+│       ├── file_utils.py          # File operations
+│       ├── severity_utils.py      # Severity helpers
+│       └── tool_installer.py      # Tool management
 │
-├── examples/              # Example configurations
-│   ├── config.example.yaml
-│   ├── config-phase2.yaml
-│   └── vulnerable-app/    # Test files
+├── docs/                           # Documentation
+│   ├── README.md                  # Documentation index
+│   ├── GETTING_STARTED.md         # Quick start guide
+│   ├── USER_GUIDE.md              # User documentation
+│   ├── FEATURES.md                # Features overview
+│   ├── TOOLS.md                   # Tool-specific docs
+│   ├── DEVELOPMENT.md             # This file
+│   └── CHANGELOG.md               # Version history
 │
-└── docs/                  # Documentation
-    ├── GETTING_STARTED.md
-    ├── USER_GUIDE.md
-    ├── FEATURES.md
-    ├── TOOLS.md
-    └── CHANGELOG.md
+└── examples/                       # Example configurations
+    ├── config.example.yaml        # Example config
+    ├── terraform/                 # Example IaC files
+    ├── python/                    # Example Python app
+    └── nodejs/                    # Example Node.js app
 ```
 
 ---
 
-## 🎯 Architecture Overview
+## 🔧 Adding New Tools
 
-### Design Principles
+### Step 1: Create a Parser
 
-1. **Plugin Architecture** - Easy to add new tools
-2. **Unified Schema** - Consistent output across tools
-3. **Separation of Concerns** - Clear module boundaries
-4. **Configuration-Driven** - YAML-based flexibility
-5. **Extensibility** - Open for extension, closed for modification
-
-### Data Flow
-
-```
-CLI (cli.py)
-  ↓
-ConfigLoader (config_loader.py)
-  ↓
-Orchestrator (orchestrator.py)
-  ↓
-Parsers (checkov_parser.py, trivy_parser.py, etc.)
-  ↓
-Unified Schema (schema.py) → Finding objects
-  ↓
-Reporters (json_reporter.py, html_reporter.py, sarif_reporter.py)
-  ↓
-Output Files (reports/)
-```
-
-### Key Components
-
-#### 1. CLI Layer (`cli.py`)
-
-- Built with **Click** framework
-- Commands: `init`, `run`, `check`, `setup`
-- Handles user input and validation
-- Displays Rich console output
-
-#### 2. Configuration (`config_loader.py`)
-
-- Loads and validates YAML config
-- Schema validation
-- Error handling for malformed configs
-
-#### 3. Orchestrator (`orchestrator.py`)
-
-- Coordinates tool execution
-- Manages tool lifecycle
-- Collects and normalizes results
-- Generates reports
-
-#### 4. Parsers (`core/parsers/`)
-
-Each parser:
-- Executes the security tool
-- Parses tool-specific output format
-- Converts to unified `Finding` schema
-- Handles errors gracefully
-
-#### 5. Schema (`schema.py`)
-
-Defines core data models:
-```python
-@dataclass
-class Finding:
-    tool: str
-    category: Category
-    severity: Severity
-    title: str
-    description: str
-    file_path: str
-    line_number: int
-    check_id: str
-    references: List[str]
-    remediation: str
-    code_snippet: str
-
-@dataclass
-class ScanResult:
-    metadata: dict
-    findings: List[Finding]
-    summary: dict
-```
-
-#### 6. Reporters (`core/reporters/`)
-
-- **JSONReporter**: Structured JSON output
-- **HTMLReporter**: Interactive web report (Jinja2)
-- **SARIFReporter**: SARIF 2.1.0 compliant output
-
----
-
-## 🔌 Adding a New Security Tool
-
-### Step 1: Create Parser
-
-Create `core/parsers/newtool_parser.py`:
+Create a new file in `core/parsers/`, e.g., `snyk_parser.py`:
 
 ```python
-import subprocess
+"""
+Snyk parser for dependency scanning
+"""
 import json
+import subprocess
 from typing import List
-from ..schema import Finding, Category, Severity
+from core.schema import Finding, ScanResult, Severity, Category
+from core.utils.file_utils import make_path_relative
+from core.constants import TOOL_TIMEOUT_SECONDS
+from core.logger import get_logger
 
-class NewToolParser:
-    """Parser for NewTool security scanner."""
+logger = get_logger(__name__)
+
+
+class SnykParser:
+    """Parser for Snyk security scanner"""
     
-    def __init__(self):
-        self.tool_name = "newtool"
-        self.category = Category.SAST  # or SCA, IAC, SECRETS
-    
-    def run(self, args: List[str], cwd: str) -> List[Finding]:
-        """Execute NewTool and parse results."""
+    def parse(self, target_path: str, args: List[str] = None) -> ScanResult:
+        """
+        Run Snyk and parse results
+        
+        Args:
+            target_path: Path to scan
+            args: Additional Snyk arguments
+            
+        Returns:
+            ScanResult with findings
+        """
+        findings = []
+        args = args or []
+        
+        # Build command
+        cmd = ["snyk", "test", target_path] + args + ["--json"]
+        
+        logger.info(f"Running Snyk: {' '.join(cmd)}")
+        
         try:
-            # Run the tool
+            # Execute Snyk
             result = subprocess.run(
-                [self.tool_name] + args,
-                cwd=cwd,
+                cmd,
                 capture_output=True,
                 text=True,
-                check=False
+                timeout=TOOL_TIMEOUT_SECONDS
             )
             
-            # Parse output
-            if result.returncode != 0 and not result.stdout:
-                raise Exception(f"NewTool failed: {result.stderr}")
-            
-            # Convert to JSON
+            # Parse JSON output
             data = json.loads(result.stdout)
             
-            # Parse findings
-            findings = []
-            for item in data.get('issues', []):
+            # Extract vulnerabilities
+            for vuln in data.get("vulnerabilities", []):
                 finding = Finding(
-                    tool=self.tool_name,
-                    category=self.category,
-                    severity=self._map_severity(item['severity']),
-                    title=item['title'],
-                    description=item['description'],
-                    file_path=item['file'],
-                    line_number=item.get('line', 0),
-                    check_id=item['rule_id'],
-                    references=item.get('references', []),
-                    remediation=item.get('fix', ''),
-                    code_snippet=item.get('code', '')
+                    tool="snyk",
+                    category=Category.SCA,
+                    severity=self._map_severity(vuln.get("severity")),
+                    title=vuln.get("title", "Unknown vulnerability"),
+                    description=vuln.get("description", ""),
+                    file=make_path_relative(vuln.get("from", [None])[0] or ""),
+                    line=0,
+                    resource=vuln.get("packageName", ""),
+                    rule_id=vuln.get("id", ""),
+                    check_id=vuln.get("id", ""),
+                    recommendation=vuln.get("remediation", "")
                 )
                 findings.append(finding)
-            
-            return findings
-            
+        
+        except subprocess.TimeoutExpired:
+            logger.error(f"Snyk timed out after {TOOL_TIMEOUT_SECONDS}s")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse Snyk output: {e}")
         except Exception as e:
-            raise Exception(f"NewTool parser error: {str(e)}")
+            logger.error(f"Snyk execution failed: {e}")
+        
+        return ScanResult(
+            tool="snyk",
+            findings=findings,
+            summary=self._generate_summary(findings)
+        )
     
-    def _map_severity(self, tool_severity: str) -> Severity:
-        """Map tool severity to unified severity."""
+    def _map_severity(self, severity: str) -> Severity:
+        """Map Snyk severity to standard severity"""
         mapping = {
-            'critical': Severity.CRITICAL,
-            'high': Severity.HIGH,
-            'medium': Severity.MEDIUM,
-            'low': Severity.LOW,
-            'info': Severity.INFO
+            "critical": Severity.CRITICAL,
+            "high": Severity.HIGH,
+            "medium": Severity.MEDIUM,
+            "low": Severity.LOW,
         }
-        return mapping.get(tool_severity.lower(), Severity.MEDIUM)
+        return mapping.get(severity.lower(), Severity.INFO)
+    
+    def _generate_summary(self, findings: List[Finding]) -> dict:
+        """Generate summary statistics"""
+        summary = {
+            "total": len(findings),
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "info": 0
+        }
+        
+        for finding in findings:
+            severity = finding.severity.value.lower()
+            if severity in summary:
+                summary[severity] += 1
+        
+        return summary
 ```
 
-### Step 2: Register Parser
+### Step 2: Register the Parser
 
-Update `core/parsers/__init__.py`:
+Add to `core/parsers/__init__.py`:
+
 ```python
-from .newtool_parser import NewToolParser
+from core.parsers.snyk_parser import SnykParser
 
 __all__ = [
-    'CheckovParser',
-    'TrivyParser',
-    'SemgrepParser',
-    'GitleaksParser',
-    'NewToolParser',  # Add this
+    # ... existing parsers ...
+    "SnykParser",
 ]
 ```
 
-### Step 3: Add to Orchestrator
+### Step 3: Update Orchestrator
 
-Update `core/orchestrator.py`:
+Add to `core/orchestrator.py` in the `_run_tool` method:
+
 ```python
-from .parsers import NewToolParser
-
-def _run_tool(self, tool_config):
-    tool_map = {
-        'checkov': CheckovParser,
-        'trivy': TrivyParser,
-        'semgrep': SemgrepParser,
-        'gitleaks': GitleaksParser,
-        'newtool': NewToolParser,  # Add this
-    }
-    # ...
+tool_map = {
+    "checkov": CheckovParser,
+    "trivy": TrivyParser,
+    "semgrep": SemgrepParser,
+    "gitleaks": GitleaksParser,
+    "snyk": SnykParser,  # Add new tool
+}
 ```
 
-### Step 4: Add Tool Installer
+### Step 4: Add Tool Installation
 
-Update `core/utils/tool_installer.py`:
+Add to `core/utils/tool_installer.py`:
+
 ```python
-def install_newtool(self) -> bool:
-    """Install NewTool."""
-    try:
-        if self.platform == "darwin" or self.platform == "linux":
-            subprocess.run(["brew", "install", "newtool"], check=True)
-        return True
-    except:
-        return False
+def install_snyk(self):
+    """Install Snyk"""
+    if platform.system() == "Darwin":  # macOS
+        return self._run_command(["brew", "install", "snyk"])
+    else:  # Linux/Others
+        return self._run_command(["npm", "install", "-g", "snyk"])
 ```
 
-### Step 5: Update Configuration Schema
+### Step 5: Update Constants
 
-Add to example configs:
-```yaml
+Add to `core/constants.py`:
+
+```python
+VALID_TOOL_RUNNERS = ["checkov", "trivy", "semgrep", "gitleaks", "snyk"]
+TOOL_NAME_SNYK = "Snyk"
+```
+
+### Step 6: Test
+
+```bash
+# Create test config
+cat > test-snyk.yaml << EOF
+project_name: "Test-Snyk"
+
 tools:
-  newtool:
+  sca:
     enabled: true
-    runner: newtool
-    args: ["--scan", "."]
+    runner: "snyk"
+    args: []
+
+output:
+  format: "json"
+  report_path: "reports"
+EOF
+
+# Run scan
+1security run --config test-snyk.yaml
+```
+
+---
+
+## 🎨 Code Style
+
+### Python Style Guide
+
+We follow **PEP 8** with some modifications:
+
+```python
+# Line length: 100 characters (not 79)
+# Use 4 spaces for indentation
+# Use double quotes for strings
+# Use type hints
+
+# Good example:
+def process_findings(
+    findings: List[Finding],
+    severity_threshold: Severity = Severity.HIGH
+) -> List[Finding]:
+    """
+    Filter findings by severity threshold.
+    
+    Args:
+        findings: List of security findings
+        severity_threshold: Minimum severity to include
+        
+    Returns:
+        Filtered list of findings
+    """
+    return [f for f in findings if f.severity >= severity_threshold]
+```
+
+### Formatting Tools
+
+```bash
+# Format code with black
+black .
+
+# Check style with pylint
+pylint core/ cli.py
+
+# Type checking with mypy
+mypy core/ cli.py
+```
+
+### Import Order
+
+```python
+# 1. Standard library
+import json
+import subprocess
+from typing import List, Dict
+
+# 2. Third-party packages
+import click
+from rich.console import Console
+
+# 3. Local imports
+from core.schema import Finding
+from core.utils import ensure_dir
+```
+
+### Docstrings
+
+Use Google-style docstrings:
+
+```python
+def my_function(param1: str, param2: int) -> bool:
+    """
+    Brief description of what the function does.
+    
+    Longer description if needed. Can be multiple paragraphs.
+    
+    Args:
+        param1: Description of param1
+        param2: Description of param2
+        
+    Returns:
+        Description of return value
+        
+    Raises:
+        ValueError: When param2 is negative
+        
+    Example:
+        >>> my_function("test", 42)
+        True
+    """
+    pass
 ```
 
 ---
 
 ## 🧪 Testing
 
-### Manual Testing
+### Running Tests
 
 ```bash
-# Test with example vulnerable code
-python3 1security run --config examples/config-phase2.yaml
+# Run all tests
+pytest
 
-# Test individual tools
-python3 1security run --config examples/config-sast.yaml
+# Run with coverage
+pytest --cov=core --cov-report=html
 
-# Test tool installation
-python3 1security check
-python3 1security setup
+# Run specific test file
+pytest tests/test_parsers.py
+
+# Run specific test
+pytest tests/test_parsers.py::test_checkov_parser
 ```
 
-### Test Vulnerable Code
+### Writing Tests
 
-Use `examples/vulnerable-app/` for testing:
-- `app.py` - Python vulnerabilities (SQL injection, etc.)
-- `server.js` - Node.js vulnerabilities
-- `config.py` - Hardcoded secrets
-
-### Validation Checklist
-
-- [ ] Tool executes successfully
-- [ ] Findings parsed correctly
-- [ ] Severity mapping works
-- [ ] JSON report valid
-- [ ] HTML report renders
-- [ ] SARIF report valid
-- [ ] Error handling works
-- [ ] Tool check/setup works
-
----
-
-## 📝 Code Style
-
-### Python Style Guide
-
-- **PEP 8** compliance
-- **Type hints** where appropriate
-- **Docstrings** for all classes and methods
-- **Comments** for complex logic
-
-### Example:
+Create test files in `tests/` directory:
 
 ```python
-def parse_findings(self, data: dict) -> List[Finding]:
-    """
-    Parse tool output into Finding objects.
+# tests/test_parsers.py
+import pytest
+from core.parsers.checkov_parser import CheckovParser
+from core.schema import Severity, Category
+
+
+def test_checkov_parser():
+    """Test Checkov parser with sample output"""
+    parser = CheckovParser()
+    result = parser.parse("examples/terraform/")
     
-    Args:
-        data: Raw tool output as dictionary
-        
-    Returns:
-        List of Finding objects
-        
-    Raises:
-        ParseError: If data format is invalid
-    """
-    findings = []
-    # Implementation...
-    return findings
+    assert result.tool == "checkov"
+    assert len(result.findings) > 0
+    assert all(f.category == Category.IAC for f in result.findings)
+
+
+def test_severity_mapping():
+    """Test severity mapping"""
+    parser = CheckovParser()
+    
+    assert parser._map_severity("CRITICAL") == Severity.CRITICAL
+    assert parser._map_severity("HIGH") == Severity.HIGH
+    assert parser._map_severity("MEDIUM") == Severity.MEDIUM
 ```
-
----
-
-## 🔍 Debugging
-
-### Enable Verbose Output
-
-```bash
-# Add debug prints
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Or use rich inspect
-from rich import inspect
-inspect(finding, methods=True)
-```
-
-### Common Issues
-
-**Tool not found:**
-```python
-# Check PATH
-import shutil
-print(shutil.which('checkov'))
-```
-
-**Parse errors:**
-```python
-# Print raw output
-print(f"Tool output: {result.stdout}")
-print(f"Tool errors: {result.stderr}")
-```
-
-**Severity mapping:**
-```python
-# Debug severity conversion
-print(f"Original: {tool_severity}")
-print(f"Mapped: {self._map_severity(tool_severity)}")
-```
-
----
-
-## 📊 Performance Considerations
-
-### Optimization Tips
-
-1. **Parallel Execution** - Tools run sequentially (could be parallelized)
-2. **Caching** - Tool databases could be cached
-3. **Incremental Scans** - Only scan changed files
-4. **Result Caching** - Cache findings for unchanged files
-
-### Current Bottlenecks
-
-- Trivy database download (first run)
-- Semgrep rule loading
-- Large codebases
-
----
-
-## 🚀 Release Process
-
-### Version Numbering
-
-Semantic Versioning: `MAJOR.MINOR.PATCH`
-
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes
-
-### Release Checklist
-
-1. [ ] Update version in `core/__init__.py`
-2. [ ] Update CHANGELOG.md
-3. [ ] Test all features
-4. [ ] Update documentation
-5. [ ] Create git tag
-6. [ ] Push to GitHub
-7. [ ] Create GitHub release
-
-### Version Update
-
-```python
-# core/__init__.py
-__version__ = "0.3.0"
-```
-
----
-
-## 🎯 Roadmap
-
-### Phase 3 (v0.3.0)
-
-**Features:**
-- Web dashboard (FastAPI + React)
-- Finding deduplication
-- Historical trending
-- Custom policy engine
-- Multi-repo scanning
-
-**Technical:**
-- Add SQLite/PostgreSQL storage
-- REST API endpoints
-- WebSocket for real-time updates
-- Authentication system
-
----
-
-## 📚 Resources
-
-### Dependencies
-
-- **Click**: CLI framework
-- **Rich**: Terminal formatting
-- **Jinja2**: HTML templating
-- **PyYAML**: YAML parsing
-
-### External Tools
-
-- Checkov: https://www.checkov.io/
-- Trivy: https://aquasecurity.github.io/trivy/
-- Semgrep: https://semgrep.dev/
-- Gitleaks: https://github.com/gitleaks/gitleaks
-
-### Standards
-
-- **SARIF**: https://sarifweb.azurewebsites.net/
-- **CWE**: https://cwe.mitre.org/
-- **CVE**: https://cve.mitre.org/
-- **OWASP**: https://owasp.org/
 
 ---
 
 ## 🤝 Contributing
 
-### Pull Request Process
+### Contribution Workflow
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Make changes
-4. Test thoroughly
-5. Update documentation
-6. Commit changes (`git commit -m 'Add amazing feature'`)
-7. Push to branch (`git push origin feature/amazing-feature`)
-8. Open Pull Request
+1. **Fork the repository**
+   ```bash
+   # On GitHub, click "Fork"
+   git clone https://github.com/YOUR_USERNAME/1Security.git
+   cd 1Security
+   ```
 
-### Commit Messages
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/my-new-feature
+   # or
+   git checkout -b fix/bug-description
+   ```
+
+3. **Make your changes**
+   - Write code
+   - Add tests
+   - Update documentation
+
+4. **Test your changes**
+   ```bash
+   pytest
+   black .
+   pylint core/
+   ```
+
+5. **Commit your changes**
+   ```bash
+   git add .
+   git commit -m "feat: Add Snyk integration"
+   ```
+
+6. **Push to your fork**
+   ```bash
+   git push origin feature/my-new-feature
+   ```
+
+7. **Create Pull Request**
+   - Go to GitHub
+   - Click "New Pull Request"
+   - Describe your changes
+
+### Commit Message Format
+
+We follow **Conventional Commits**:
 
 ```
-feat: Add support for NewTool scanner
-fix: Correct severity mapping for Trivy
-docs: Update installation guide
-refactor: Simplify parser architecture
-test: Add tests for Semgrep parser
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting)
+- `refactor`: Code refactoring
+- `test`: Adding tests
+- `chore`: Maintenance tasks
+
+**Examples:**
+```bash
+feat(parser): Add Snyk integration
+fix(orchestrator): Fix fail_on threshold logic
+docs(readme): Update installation instructions
+refactor(utils): Simplify path handling
+```
+
+### Pull Request Guidelines
+
+- ✅ **Clear title** - Describe what the PR does
+- ✅ **Description** - Explain why the change is needed
+- ✅ **Tests** - Include tests for new features
+- ✅ **Documentation** - Update docs if needed
+- ✅ **No breaking changes** - Unless discussed first
+- ✅ **Single purpose** - One feature/fix per PR
+
+---
+
+## 📦 Release Process
+
+### Version Numbering
+
+We use **Semantic Versioning** (semver):
+
+```
+MAJOR.MINOR.PATCH
+
+Example: 0.2.0
+- MAJOR: Breaking changes
+- MINOR: New features (backward compatible)
+- PATCH: Bug fixes
+```
+
+### Release Steps
+
+1. **Update version**
+   ```python
+   # core/__init__.py
+   __version__ = "0.3.0"
+   ```
+
+2. **Update CHANGELOG**
+   ```markdown
+   # docs/CHANGELOG.md
+   ## [0.3.0] - 2025-12-01
+   
+   ### Added
+   - Snyk integration for dependency scanning
+   
+   ### Fixed
+   - Bug in fail_on threshold logic
+   ```
+
+3. **Create git tag**
+   ```bash
+   git tag -a v0.3.0 -m "Release v0.3.0"
+   git push origin v0.3.0
+   ```
+
+4. **Create GitHub release**
+   - Go to GitHub → Releases → New Release
+   - Tag: v0.3.0
+   - Title: 1Security v0.3.0
+   - Description: Copy from CHANGELOG
+
+---
+
+## 🐛 Debugging
+
+### Enable Debug Logging
+
+```bash
+# Set verbose mode
+1security run --verbose
+
+# Or in code:
+from core.logger import setup_logger
+logger = setup_logger(verbose=True)
+```
+
+### Common Issues
+
+#### Issue: Parser not finding tool
+
+**Solution:**
+```bash
+# Check if tool is installed
+which checkov
+which trivy
+
+# Install missing tools
+1security setup
+```
+
+#### Issue: Import errors
+
+**Solution:**
+```bash
+# Reinstall in development mode
+pip uninstall 1security
+pip install -e .
+```
+
+#### Issue: Test failures
+
+**Solution:**
+```bash
+# Run tests with verbose output
+pytest -v
+
+# Run specific failing test
+pytest tests/test_specific.py::test_name -v
 ```
 
 ---
 
-## 📞 Get Help
+## 📚 Resources
 
-- **User Docs**: Other markdown files in `docs/`
-- **Issues**: https://github.com/jaganraj/1security/issues
-- **Discussions**: GitHub Discussions
+### Internal Documentation
+- [Getting Started](GETTING_STARTED.md) - Installation & setup
+- [User Guide](USER_GUIDE.md) - Using 1Security
+- [Features](FEATURES.md) - Feature overview
+- [Tools](TOOLS.md) - Tool-specific docs
+
+### External Resources
+- [Python Packaging Guide](https://packaging.python.org/)
+- [Click Documentation](https://click.palletsprojects.com/)
+- [Pytest Documentation](https://docs.pytest.org/)
+- [PEP 8 Style Guide](https://pep8.org/)
+
+### Tool Documentation
+- [Checkov Docs](https://www.checkov.io/1.Welcome/What%20is%20Checkov.html)
+- [Trivy Docs](https://aquasecurity.github.io/trivy/)
+- [Semgrep Docs](https://semgrep.dev/docs/)
+- [Gitleaks Docs](https://github.com/gitleaks/gitleaks)
 
 ---
 
-**1Security v0.2.0** | MIT License | R Jagan Raj
+## 🎯 Development Roadmap
 
+### Short Term (Next Release)
+- [ ] Add unit tests (pytest)
+- [ ] Add integration tests
+- [ ] Improve error handling
+- [ ] Add more tool integrations
+
+### Medium Term
+- [ ] Web dashboard
+- [ ] Result deduplication
+- [ ] Policy engine
+- [ ] Parallel tool execution
+
+### Long Term
+- [ ] Plugin system
+- [ ] Cloud integrations
+- [ ] Machine learning for false positives
+- [ ] Custom rule engine
+
+---
+
+## 💬 Getting Help
+
+- **Questions?** Open a [GitHub Discussion](https://github.com/jagan-raj-r/1Security/discussions)
+- **Bug?** Open a [GitHub Issue](https://github.com/jagan-raj-r/1Security/issues)
+- **Feature Request?** Open a [GitHub Issue](https://github.com/jagan-raj-r/1Security/issues) with label `enhancement`
+
+---
+
+## 🙏 Thank You!
+
+Thank you for contributing to 1Security! Every contribution makes the tool better for everyone.
+
+**Happy coding!** 🚀
+
+---
+
+*Last Updated: November 21, 2025*
