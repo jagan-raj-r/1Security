@@ -1,0 +1,2 @@
+[console_scripts]
+1security = __main__:main

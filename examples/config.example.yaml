@@ -1,0 +1,63 @@
+# 1Security Configuration File
+# This is an example configuration for the 1Security ASPM Orchestrator
+
+# Project information
+project: myapp
+language: python
+
+# Security scanning tools configuration
+tools:
+  # Infrastructure as Code (IaC) scanning with Checkov
+  iac:
+    enabled: true
+    runner: checkov
+    # Checkov arguments:
+    # -d: directory to scan
+    # --framework: specific framework to scan (terraform, cloudformation, kubernetes, etc.)
+    # --output: output format (json required for parsing)
+    # --quiet: suppress progress output
+    args: ["-d", ".", "--framework", "terraform", "--output", "json", "--quiet"]
+  
+  # Software Composition Analysis (SCA) with Trivy ✅ IMPLEMENTED
+  sca:
+    enabled: true
+    runner: trivy
+    # Trivy arguments:
+    # fs: scan filesystem
+    # --scanners vuln: scan for vulnerabilities
+    # --format json: output format (required for parsing)
+    # --quiet: suppress progress output
+    # You can scan: fs, image, config, rootfs, sbom
+    args: ["fs", ".", "--scanners", "vuln", "--format", "json", "--quiet"]
+  
+  # Static Application Security Testing (SAST) - Coming Soon
+  sast:
+    enabled: false
+    runner: semgrep
+    args: ["--config", "p/owasp-top-ten"]
+  
+  # Secrets Detection - Coming Soon
+  secrets:
+    enabled: false
+    runner: gitleaks
+    args: ["detect", "--source", "."]
+  
+  # Dynamic Application Security Testing (DAST) - Coming Soon
+  dast:
+    enabled: false
+    runner: zap
+    args: []
+  
+  # Container Security with Trivy - Ready to Use
+  container:
+    enabled: false
+    runner: trivy
+    # For container scanning:
+    args: ["image", "your-image:tag", "--format", "json", "--quiet"]
+
+# Output configuration
+output:
+  format: both  # Options: json, html, both
+  report_path: reports/
+  fail_on: critical  # Options: critical, high, medium, low, info (fail build if any findings of this severity or higher)
+

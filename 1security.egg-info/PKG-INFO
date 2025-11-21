@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: 1security
+Version: 0.1.0
+Summary: Open Source ASPM Orchestrator
+Home-page: https://github.com/jaganraj/1security
+Author: R Jagan Raj
+Author-email: 
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+License-File: LICENSE
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: checkov>=3.0.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

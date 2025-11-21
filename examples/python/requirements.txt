@@ -1,0 +1,27 @@
+# Example Python dependencies with known vulnerabilities
+# DO NOT USE IN PRODUCTION - These are intentionally vulnerable for testing
+
+# Django with known CVE
+django==2.2.0  # CVE-2019-14234, CVE-2019-14235 (CRITICAL)
+
+# Flask with vulnerabilities
+flask==0.12.2  # CVE-2018-1000656 (HIGH)
+
+# Requests with old version
+requests==2.6.0  # CVE-2018-18074 (HIGH)
+
+# Jinja2 with vulnerability
+jinja2==2.10.0  # CVE-2019-10906 (HIGH)
+
+# PyYAML with vulnerability
+pyyaml==5.1  # CVE-2020-1747 (CRITICAL)
+
+# Pillow with vulnerabilities
+pillow==6.0.0  # Multiple CVEs (HIGH)
+
+# SQLAlchemy old version
+sqlalchemy==1.2.0  # CVE-2019-7164, CVE-2019-7548 (MEDIUM)
+
+# urllib3 with vulnerability
+urllib3==1.24.1  # CVE-2019-11324 (HIGH)
+
