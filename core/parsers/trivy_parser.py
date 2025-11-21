@@ -7,6 +7,11 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from core.schema import Finding, ScanResult, Severity
+from core.utils.file_utils import make_path_relative
+from core.constants import TOOL_TIMEOUT_SECONDS
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TrivyParser:
@@ -55,7 +60,7 @@ class TrivyParser:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minute timeout
+                timeout=TOOL_TIMEOUT_SECONDS
             )
             
             # Trivy returns non-zero exit code when vulnerabilities are found
@@ -120,7 +125,7 @@ class TrivyParser:
         try:
             data = json.loads(output)
         except json.JSONDecodeError as e:
-            print(f"Warning: Failed to parse Trivy output as JSON: {e}")
+            logger.warning(f"Failed to parse Trivy output as JSON: {e}")
             return findings
         
         # Trivy output structure: Results array containing vulnerability info

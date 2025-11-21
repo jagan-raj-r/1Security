@@ -226,6 +226,94 @@ HTML_TEMPLATE = """
             color: #1f2937;
         }
         
+        .filters {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .filters h3 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #374151;
+            font-weight: 600;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 2px solid #d1d5db;
+            background: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #6b7280;
+        }
+        
+        .filter-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .reset-btn {
+            padding: 0.5rem 1rem;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .reset-btn:hover {
+            background: #dc2626;
+        }
+        
         .findings-table {
             width: 100%;
             border-collapse: collapse;
@@ -383,6 +471,58 @@ HTML_TEMPLATE = """
             <h2>Security Findings</h2>
             
             {% if all_findings %}
+            
+            <!-- Filters Section -->
+            <div class="filters">
+                <h3>🔍 Filter Results</h3>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Search:</label>
+                    <input type="text" id="searchBox" class="search-box" placeholder="Search by title, file, or check ID...">
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Filter by Tool:</label>
+                    <div class="filter-group" id="toolFilters">
+                        <button class="filter-btn active" data-filter="all" data-type="tool">All Tools</button>
+                        <button class="filter-btn" data-filter="checkov" data-type="tool">Checkov</button>
+                        <button class="filter-btn" data-filter="trivy" data-type="tool">Trivy</button>
+                        <button class="filter-btn" data-filter="semgrep" data-type="tool">Semgrep</button>
+                        <button class="filter-btn" data-filter="gitleaks" data-type="tool">Gitleaks</button>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Filter by Severity:</label>
+                    <div class="filter-group" id="severityFilters">
+                        <button class="filter-btn active" data-filter="all" data-type="severity">All Severities</button>
+                        <button class="filter-btn" data-filter="CRITICAL" data-type="severity" style="border-color: #dc2626; color: #dc2626;">Critical</button>
+                        <button class="filter-btn" data-filter="HIGH" data-type="severity" style="border-color: #ea580c; color: #ea580c;">High</button>
+                        <button class="filter-btn" data-filter="MEDIUM" data-type="severity" style="border-color: #ca8a04; color: #ca8a04;">Medium</button>
+                        <button class="filter-btn" data-filter="LOW" data-type="severity" style="border-color: #16a34a; color: #16a34a;">Low</button>
+                        <button class="filter-btn" data-filter="INFO" data-type="severity" style="border-color: #0284c7; color: #0284c7;">Info</button>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Filter by Category:</label>
+                    <div class="filter-group" id="categoryFilters">
+                        <button class="filter-btn active" data-filter="all" data-type="category">All Categories</button>
+                        <button class="filter-btn" data-filter="iac" data-type="category">IaC</button>
+                        <button class="filter-btn" data-filter="sca" data-type="category">SCA</button>
+                        <button class="filter-btn" data-filter="sast" data-type="category">SAST</button>
+                        <button class="filter-btn" data-filter="secrets" data-type="category">Secrets</button>
+                    </div>
+                </div>
+                
+                <button class="reset-btn" onclick="resetFilters()">Reset All Filters</button>
+            </div>
+            
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <span id="statsText">Showing <strong id="visibleCount">{{ all_findings|length }}</strong> of <strong>{{ all_findings|length }}</strong> findings</span>
+            </div>
+            
             <table class="findings-table">
                 <thead>
                     <tr>
@@ -395,7 +535,11 @@ HTML_TEMPLATE = """
                 </thead>
                 <tbody>
                     {% for finding in all_findings %}
-                    <tr>
+                    <tr class="finding-row" 
+                        data-tool="{{ finding.tool }}" 
+                        data-severity="{{ finding.severity }}" 
+                        data-category="{{ finding.category }}"
+                        data-search="{{ finding.title|lower }} {{ finding.description|lower }} {{ finding.file|lower }} {{ finding.check_id|lower }} {{ finding.rule_id|lower }}">
                         <td>
                             <span class="badge {{ get_severity_badge(finding.severity) }}">
                                 {{ finding.severity }}
@@ -438,9 +582,137 @@ HTML_TEMPLATE = """
         
         <footer>
             <strong>1Security</strong> - Open Source ASPM Orchestrator | 
-            Generated by 1Security v0.1.0
+            Generated by 1Security v0.2.0
         </footer>
     </div>
+    
+    <script>
+        // Filter state
+        let filters = {
+            tool: 'all',
+            severity: 'all',
+            category: 'all',
+            search: ''
+        };
+        
+        // Get all finding rows
+        const findingRows = document.querySelectorAll('.finding-row');
+        const totalFindings = findingRows.length;
+        
+        // Apply filters
+        function applyFilters() {
+            let visibleCount = 0;
+            
+            findingRows.forEach(row => {
+                const tool = row.dataset.tool;
+                const severity = row.dataset.severity;
+                const category = row.dataset.category;
+                const searchText = row.dataset.search;
+                
+                // Check if row matches all filters
+                const matchesTool = filters.tool === 'all' || tool === filters.tool;
+                const matchesSeverity = filters.severity === 'all' || severity === filters.severity;
+                const matchesCategory = filters.category === 'all' || category === filters.category;
+                const matchesSearch = filters.search === '' || searchText.includes(filters.search.toLowerCase());
+                
+                if (matchesTool && matchesSeverity && matchesCategory && matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update stats
+            document.getElementById('visibleCount').textContent = visibleCount;
+            
+            // Show message if no results
+            const tbody = document.querySelector('.findings-table tbody');
+            let noResultsRow = document.getElementById('noResultsRow');
+            
+            if (visibleCount === 0) {
+                if (!noResultsRow) {
+                    noResultsRow = document.createElement('tr');
+                    noResultsRow.id = 'noResultsRow';
+                    noResultsRow.innerHTML = '<td colspan="5" style="text-align: center; padding: 3rem; color: #6b7280;"><div style="font-size: 2rem; margin-bottom: 1rem;">🔍</div><h3>No findings match your filters</h3><p>Try adjusting your filters or reset them.</p></td>';
+                    tbody.appendChild(noResultsRow);
+                }
+            } else {
+                if (noResultsRow) {
+                    noResultsRow.remove();
+                }
+            }
+        }
+        
+        // Handle filter button clicks
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filterType = this.dataset.type;
+                const filterValue = this.dataset.filter;
+                
+                // Update active state
+                const group = this.parentElement;
+                group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Update filter state
+                filters[filterType] = filterValue;
+                
+                // Apply filters
+                applyFilters();
+            });
+        });
+        
+        // Handle search input
+        const searchBox = document.getElementById('searchBox');
+        searchBox.addEventListener('input', function() {
+            filters.search = this.value;
+            applyFilters();
+        });
+        
+        // Reset all filters
+        function resetFilters() {
+            filters = {
+                tool: 'all',
+                severity: 'all',
+                category: 'all',
+                search: ''
+            };
+            
+            // Reset search box
+            searchBox.value = '';
+            
+            // Reset all filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.filter === 'all') {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Apply filters
+            applyFilters();
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + K to focus search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                searchBox.focus();
+            }
+            
+            // Escape to clear search
+            if (e.key === 'Escape' && document.activeElement === searchBox) {
+                searchBox.value = '';
+                filters.search = '';
+                applyFilters();
+            }
+        });
+        
+        // Add keyboard shortcut hint
+        searchBox.placeholder = 'Search... (Ctrl+K or Cmd+K)';
+    </script>
 </body>
 </html>
 """

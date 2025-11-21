@@ -10,6 +10,7 @@ from rich.table import Table
 from core import __version__
 from core.orchestrator import Orchestrator
 from core.config_loader import ConfigLoader
+from core.utils.tool_installer import ToolInstaller
 
 console = Console()
 
@@ -43,11 +44,16 @@ def cli():
 @click.option(
     "--format",
     "-f",
-    type=click.Choice(["json", "html", "both"], case_sensitive=False),
+    type=click.Choice(["json", "html", "both", "sarif", "all"], case_sensitive=False),
     default="both",
-    help="Output format",
+    help="Output format (json, html, both, sarif, all)",
 )
-def run(config, output, format):
+@click.option(
+    "--skip-tool-check",
+    is_flag=True,
+    help="Skip automatic tool installation check",
+)
+def run(config, output, format, skip_tool_check):
     """
     Run security scans based on configuration.
     """
@@ -58,6 +64,14 @@ def run(config, output, format):
         console.print(f"[cyan]📋 Loading configuration from:[/cyan] {config}")
         config_loader = ConfigLoader(config)
         cfg = config_loader.load()
+        
+        # Check and install required tools
+        if not skip_tool_check:
+            installer = ToolInstaller()
+            if not installer.ensure_tools_installed(cfg, auto_install=True):
+                console.print("\n[yellow]⚠️  Some tools are missing. Scan may fail.[/yellow]")
+                console.print("[cyan]Tip: Install missing tools or use --skip-tool-check to proceed anyway[/cyan]")
+                # Continue anyway - individual parsers will handle missing tools gracefully
         
         # Create output directory
         output_path = Path(output)
@@ -81,6 +95,99 @@ def run(config, output, format):
             
     except FileNotFoundError as e:
         console.print(f"[bold red]❌ Error:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]❌ Unexpected error:[/bold red] {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--config",
+    "-c",
+    default="config.yaml",
+    help="Path to configuration file to check tools for",
+    type=click.Path(exists=True),
+)
+def check(config):
+    """
+    Check if required security tools are installed.
+    """
+    console.print("\n[bold blue]🔍 1Security - Tool Check[/bold blue]\n")
+    
+    try:
+        # Load configuration to see what tools are needed
+        config_loader = ConfigLoader(config)
+        cfg = config_loader.load()
+        
+        # Check tools
+        installer = ToolInstaller()
+        installer.ensure_tools_installed(cfg, auto_install=False)
+        
+    except FileNotFoundError as e:
+        console.print(f"[bold red]❌ Error:[/bold red] {e}")
+        console.print("[cyan]Tip: Run '1security init' to create a configuration file[/cyan]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]❌ Unexpected error:[/bold red] {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--config",
+    "-c",
+    default="config.yaml",
+    help="Path to configuration file",
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Install all tools without prompting",
+)
+def setup(config, yes):
+    """
+    Install all required security scanning tools.
+    """
+    console.print("\n[bold blue]📦 1Security - Tool Setup[/bold blue]\n")
+    
+    try:
+        # Load configuration
+        config_loader = ConfigLoader(config)
+        cfg = config_loader.load()
+        
+        # Install tools
+        installer = ToolInstaller()
+        
+        # Get required tools
+        required_tools = installer.get_required_tools(cfg)
+        console.print(f"[cyan]Required tools based on configuration:[/cyan]")
+        for tool in required_tools:
+            if tool in installer.TOOLS:
+                tool_info = installer.TOOLS[tool]
+                console.print(f"  • {tool_info['name']} ({tool_info['category']})")
+        
+        # Check and install
+        status = installer.check_all_tools(required_tools)
+        installer.display_tool_status(status)
+        
+        if installer.install_missing_tools(status, auto_yes=yes):
+            console.print("\n[green]✅ Setup complete! All tools are ready.[/green]")
+            console.print("\n[cyan]Next steps:[/cyan]")
+            console.print("1. Run: 1security run")
+            console.print("2. View reports in the reports/ directory")
+            sys.exit(0)
+        else:
+            console.print("\n[yellow]⚠️  Setup incomplete. Some tools may be missing.[/yellow]")
+            sys.exit(1)
+            
+    except FileNotFoundError as e:
+        console.print(f"[bold red]❌ Error:[/bold red] {e}")
+        console.print("[cyan]Tip: Run '1security init' to create a configuration file[/cyan]")
         sys.exit(1)
     except Exception as e:
         console.print(f"[bold red]❌ Unexpected error:[/bold red] {e}")
@@ -118,9 +225,25 @@ output:
     
     config_path.write_text(template)
     console.print(f"[green]✅ Created {config_path}[/green]")
+    
+    # Ask if user wants to install tools
+    console.print("\n[cyan]Would you like to check and install required security tools?[/cyan]")
+    from rich.prompt import Confirm
+    if Confirm.ask("Check tools now?", default=True):
+        console.print("")
+        try:
+            from core.config_loader import ConfigLoader
+            cfg = ConfigLoader(str(config_path)).load()
+            installer = ToolInstaller()
+            installer.ensure_tools_installed(cfg, auto_install=True)
+        except Exception as e:
+            console.print(f"[yellow]⚠️  Tool check failed: {e}[/yellow]")
+    
     console.print("\n[cyan]Next steps:[/cyan]")
     console.print("1. Edit config.yaml to match your project")
-    console.print("2. Run: 1security run")
+    console.print("2. Run: 1security check (to verify tools)")
+    console.print("3. Run: 1security setup (to install missing tools)")
+    console.print("4. Run: 1security run (to start scanning)")
 
 
 def display_summary(results):

@@ -7,6 +7,11 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any
 from core.schema import Finding, ScanResult, Severity
+from core.utils.file_utils import make_path_relative
+from core.constants import TOOL_TIMEOUT_SECONDS
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CheckovParser:
@@ -51,7 +56,7 @@ class CheckovParser:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minute timeout
+                timeout=TOOL_TIMEOUT_SECONDS
             )
             
             # Checkov returns non-zero exit code when findings are present
@@ -116,7 +121,7 @@ class CheckovParser:
         try:
             data = json.loads(output)
         except json.JSONDecodeError as e:
-            print(f"Warning: Failed to parse Checkov output as JSON: {e}")
+            logger.warning(f"Failed to parse Checkov output as JSON: {e}")
             return findings
         
         # Checkov can have multiple result sets
@@ -147,14 +152,7 @@ class CheckovParser:
         # Extract basic information
         check_id = check.get("check_id", "UNKNOWN")
         check_name = check.get("check_name", "Unknown Check")
-        file_path = check.get("file_path", "")
-        
-        # Make file path relative
-        if file_path.startswith("/"):
-            try:
-                file_path = str(Path(file_path).relative_to(Path.cwd()))
-            except ValueError:
-                pass  # Keep absolute path if can't make relative
+        file_path = make_path_relative(check.get("file_path", ""))
         
         # Extract location
         file_line_range = check.get("file_line_range", [])

@@ -7,8 +7,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from core.parsers.checkov_parser import CheckovParser
 from core.parsers.trivy_parser import TrivyParser
+from core.parsers.semgrep_parser import SemgrepParser
+from core.parsers.gitleaks_parser import GitleaksParser
 from core.reporters.json_reporter import JSONReporter
 from core.reporters.html_reporter import HTMLReporter
+from core.reporters.sarif_reporter import SARIFReporter
 
 
 console = Console()
@@ -94,6 +97,8 @@ class Orchestrator:
         tool_map = {
             "checkov": CheckovParser,
             "trivy": TrivyParser,
+            "semgrep": SemgrepParser,
+            "gitleaks": GitleaksParser,
         }
         
         parser_class = tool_map.get(runner)
@@ -123,16 +128,22 @@ class Orchestrator:
         reports = []
         
         # Generate JSON report
-        if self.output_format in ["json", "both"]:
+        if self.output_format in ["json", "both", "all"]:
             json_reporter = JSONReporter(self.output_path)
             json_path = json_reporter.generate(self.scan_results)
             reports.append(str(json_path))
         
         # Generate HTML report
-        if self.output_format in ["html", "both"]:
+        if self.output_format in ["html", "both", "all"]:
             html_reporter = HTMLReporter(self.output_path)
             html_path = html_reporter.generate(self.scan_results, self.config)
             reports.append(str(html_path))
+        
+        # Generate SARIF report
+        if self.output_format in ["sarif", "all"]:
+            sarif_reporter = SARIFReporter(self.output_path)
+            sarif_path = sarif_reporter.generate(self.scan_results)
+            reports.append(str(sarif_path))
         
         return reports
     
@@ -159,11 +170,14 @@ class Orchestrator:
         has_critical = severity_totals.get("CRITICAL", 0) > 0
         fail_on = self.config.get("output", {}).get("fail_on", "").upper()
         
+        # Use severity utility to properly check threshold
         should_fail = False
-        if fail_on == "CRITICAL" and severity_totals.get("CRITICAL", 0) > 0:
-            should_fail = True
-        elif fail_on == "HIGH" and (severity_totals.get("CRITICAL", 0) > 0 or severity_totals.get("HIGH", 0) > 0):
-            should_fail = True
+        if fail_on:
+            from core.utils.severity_utils import meets_threshold
+            for severity, count in severity_totals.items():
+                if count > 0 and meets_threshold(severity, fail_on):
+                    should_fail = True
+                    break
         
         return {
             "project": self.config.get("project", "unknown"),

@@ -33,6 +33,18 @@ CATEGORY_DAST = "dast"
 CATEGORY_SECRETS = "secrets"
 CATEGORY_CONTAINER = "container"
 
+# Valid configuration values
+VALID_OUTPUT_FORMATS = ["json", "html", "both", "sarif", "all"]
+VALID_SEVERITIES = ["critical", "high", "medium", "low", "info"]
+VALID_TOOL_RUNNERS = ["checkov", "trivy", "semgrep", "gitleaks"]
+VALID_CATEGORIES = [CATEGORY_IAC, CATEGORY_SCA, CATEGORY_SAST, CATEGORY_SECRETS]
+
+# Tool names (for logging and display)
+TOOL_NAME_CHECKOV = "Checkov"
+TOOL_NAME_TRIVY = "Trivy"
+TOOL_NAME_SEMGREP = "Semgrep"
+TOOL_NAME_GITLEAKS = "Gitleaks"
+
 # Report filenames
 JSON_REPORT_NAME = "1security-report.json"
 HTML_REPORT_NAME = "1security-report.html"
